@@ -12,6 +12,7 @@
 		"format": "prettier --write src/"
 	},
 	"dependencies": {
+		"nanoid": "^5.0.7",
 		"pixi.js": "^8.4.1",
 		"vue": "^3.5.7"
 	},
@@ -29,6 +30,7 @@
 		"npm-run-all2": "^6.2.3",
 		"prettier": "^3.3.3",
 		"vite": "^5.4.7",
+		"vite-tsconfig-paths": "^5.0.1",
 		"vue-tsc": "^2.1.6"
 	},
 	"peerDependencies": {

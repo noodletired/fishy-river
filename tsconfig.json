@@ -24,6 +24,15 @@
 		"noUnusedParameters": false,
 		"noPropertyAccessFromIndexSignature": false,
 
-		"types": []
+		"types": [],
+
+		// Path aliases
+		"baseUrl": ".",
+		"paths": {
+			"lib/*": ["./src/lib/*"],
+			"game/*": ["./src/game/*"],
+			"assets/*": ["./src/assets/*"],
+			"components/*": ["./src/components/*"]
+		}
 	}
 }

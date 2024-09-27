@@ -37,8 +37,17 @@ export class Vector implements VectorLike {
 		return Math.sqrt(this.x ** 2 + this.y ** 2);
 	}
 
+	set magnitude(magnitude: number) {
+		this.Normalise().Multiply(magnitude);
+	}
+
 	get angle(): Angle {
 		return new Radians(Math.atan2(this.y, this.x));
+	}
+
+	set angle(angle: Angle) {
+		const magnitude = this.magnitude;
+		this.Set({ x: 1, y: 0 }).Rotate(angle).Multiply(magnitude);
 	}
 
 	toString(): string {
