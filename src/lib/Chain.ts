@@ -65,7 +65,7 @@ export default class Chain {
 	Resolve(position: Vector) {
 		this.angles[0] = position.Copy().Subtract(this.joints[0]).angle;
 		this.joints[0] = position.Copy();
-		for (let i = 0; i < this.joints.length - 1; i++) {
+		for (let i = 1; i < this.joints.length - 1; i++) {
 			const currentAngle = this.joints[i - 1].Copy().Subtract(this.joints[i]).angle;
 			this.angles[i] = ConstrainAngle(currentAngle, this.angles[i - 1], this.angleLimit);
 			this.joints[i].Set(

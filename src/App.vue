@@ -1,38 +1,16 @@
-<script setup lang="ts"></script>
-
 <template>
-	<header>
-		<img alt="Vue logo" class="logo" src="./assets/logo.svg" width="125" height="125" />
-	</header>
-
-	<main>Hello World</main>
+	<canvas ref="canvas"></canvas>
 </template>
 
-<style scoped>
-header {
-	line-height: 1.5;
-}
+<script setup lang="ts">
+import { onMounted, ref } from 'vue';
+import { CreateGame } from 'game/Game';
+import type { Application } from 'pixi.js';
 
-.logo {
-	display: block;
-	margin: 0 auto 2rem;
-}
+const app = ref<Application | null>(null);
+const canvas = ref<HTMLCanvasElement>();
 
-@media (min-width: 1024px) {
-	header {
-		display: flex;
-		place-items: center;
-		padding-right: calc(var(--section-gap) / 2);
-	}
-
-	.logo {
-		margin: 0 2rem 0 0;
-	}
-
-	header .wrapper {
-		display: flex;
-		place-items: flex-start;
-		flex-wrap: wrap;
-	}
-}
-</style>
+onMounted(async () => {
+	app.value = await CreateGame({ canvas: canvas.value, resizeTo: window, background: '#1099bb' });
+});
+</script>

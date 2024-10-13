@@ -3,7 +3,8 @@
 {
 	"name": "Bun",
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
-	"image": "oven/bun",
+	// "image": "oven/bun",
+	"image": "ghcr.io/nhaef/devcontainer-bun:latest",
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	// "features": {},

@@ -1,8 +1,9 @@
 import { nanoid } from 'nanoid';
-import { Graphics, type Ticker } from 'pixi.js';
+import { Application, Assets, MeshRope, Point, type Texture, type Ticker } from 'pixi.js';
 import GameObject from 'lib/GameObject';
 import Chain from 'lib/Chain';
 import { Angle, Degrees, Vector } from 'lib/Vector';
+import textureURI from 'assets/fish.png';
 
 type TrackTarget = GameObject | Vector;
 
@@ -12,16 +13,25 @@ type TrackTarget = GameObject | Vector;
  */
 export class Fish extends GameObject {
 	private spine: Chain;
-	private bodyWidth = [68, 81, 84, 83, 77, 64, 51, 38, 32, 19];
-	private graphics: Graphics;
+	private texture: Promise<Texture>; // TODO: use bundles and named thingos
+	private graphics?: MeshRope;
+	private mesh: Point[];
 	trackTowards?: TrackTarget | (() => TrackTarget);
 	maxVelocity = 20 / 1000; // pixels per millisecond
 
-	constructor(name = `fish-${nanoid(10)}`) {
-		super(name, ['fish']);
+	constructor(app: Application, name = `fish-${nanoid(10)}`) {
+		super(app, name, ['fish']);
 
-		// 12 segments, first 10 for body, last 2 for caudal fin
-		this.spine = new Chain(new Vector(), 12, 64, new Degrees(22.5));
+		// 10 segments
+		this.spine = new Chain(new Vector(), 10, 64, new Degrees(22.5));
+		this.mesh = this.spine.joints.map(({ x, y }) => new Point(x, y));
+
+		this.texture = Assets.load(textureURI);
+		this.texture.then((texture) => {
+			this.graphics = new MeshRope({ texture, points: this.mesh });
+			this.app.stage.addChild(this.graphics);
+			// this.container.addChild(this.graphics);
+		});
 	}
 
 	/**
@@ -53,11 +63,22 @@ export class Fish extends GameObject {
 			this.position = this.spine.joints[0].Copy();
 			this.angle = this.spine.angles[0];
 		}
+
+		// Update the mesh
+		for (let i = 0; i < this.mesh.length; i++) {
+			this.mesh[i].copyFrom(this.spine.joints[i]);
+		}
 	}
 
-	Render(ticker: Ticker) {}
-
 	Destroy() {
-		this.graphics.destroy();
+		if (this.graphics) {
+			this.graphics?.destroy();
+		} else {
+			this.texture.finally(() => {
+				this.graphics!.destroy();
+			});
+		}
+
+		super.Destroy();
 	}
 }

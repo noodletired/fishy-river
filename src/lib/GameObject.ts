@@ -1,4 +1,4 @@
-import type { Ticker } from 'pixi.js';
+import { Container, Matrix, type Application, type Ticker } from 'pixi.js';
 import { Vector, Angle, Degrees } from './Vector';
 
 /**
@@ -7,13 +7,16 @@ import { Vector, Angle, Degrees } from './Vector';
 export default abstract class GameObject {
 	private static register = new Set<GameObject>();
 
+	protected app: Application;
+	protected container = new Container();
 	position: Vector;
 	angle: Angle;
 	scale: Vector;
 	name: string;
 	tags: Set<string>;
 
-	constructor(name = '', tags: Set<string> | string[] = []) {
+	constructor(app: Application, name = '', tags: Set<string> | string[] = []) {
+		this.app = app;
 		this.position = new Vector();
 		this.scale = new Vector();
 		this.angle = new Degrees(0);
@@ -23,9 +26,23 @@ export default abstract class GameObject {
 	}
 
 	abstract Update(ticker: Ticker): void;
-	abstract Render(ticker: Ticker): void;
+
+	/**
+	 * Default render
+	 */
+	Render(ticker: Ticker /* eslint-disable-line */) {
+		// FIXME: this calculation can be cached lol
+		const matrix = Matrix.IDENTITY;
+		matrix
+			.scale(this.scale.x, this.scale.y)
+			.rotate(this.angle.radians)
+			.translate(this.position.x, this.position.y);
+		this.container.setFromMatrix(matrix);
+	}
+
 	Destroy() {
 		GameObject.register.delete(this);
+		this.container.destroy();
 	}
 
 	toString() {
