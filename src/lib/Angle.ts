@@ -15,8 +15,12 @@ export abstract class Angle {
 				value += 360;
 			}
 		} else {
-			const { atan2, sin, cos } = Math;
-			value = atan2(sin(value), cos(value));
+			while (value < -Angle.PI) {
+				value += 2 * Angle.PI;
+			}
+			while (value >= Angle.PI) {
+				value -= 2 * Angle.PI;
+			}
 		}
 		return value;
 	}
@@ -26,8 +30,7 @@ export abstract class Angle {
 	 * @param anchor anchor angle to compare to
 	 */
 	Difference(anchor: Angle) {
-		const { radians: simplifiedAngle } = new Radians(this.radians + Angle.PI - anchor.radians);
-		return new Radians(Angle.PI - simplifiedAngle);
+		return new Radians(this.radians - anchor.radians);
 	}
 
 	/**

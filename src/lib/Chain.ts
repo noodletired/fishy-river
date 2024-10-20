@@ -28,9 +28,9 @@ export function ConstrainAngle(angle: Angle, anchor: Angle, constraint: Angle) {
 	if (Math.abs(differenceRads) <= constraintRads) {
 		return new Radians(angle.radians);
 	} else if (differenceRads > constraintRads) {
-		return new Radians(angle.radians - constraintRads);
+		return new Radians(anchor.radians + constraintRads);
 	} else {
-		return new Radians(angle.radians + constraintRads);
+		return new Radians(anchor.radians - constraintRads);
 	}
 }
 
@@ -65,7 +65,7 @@ export default class Chain {
 	Resolve(position: Vector) {
 		this.angles[0] = position.Copy().Subtract(this.joints[0]).angle;
 		this.joints[0] = position.Copy();
-		for (let i = 1; i < this.joints.length - 1; i++) {
+		for (let i = 1; i < this.joints.length; i++) {
 			const currentAngle = this.joints[i - 1].Copy().Subtract(this.joints[i]).angle;
 			this.angles[i] = ConstrainAngle(currentAngle, this.angles[i - 1], this.angleLimit);
 			this.joints[i].Set(
@@ -77,7 +77,7 @@ export default class Chain {
 	ResolveFABRIK(position: Vector, anchor: Vector) {
 		// Forward pass
 		this.joints[0] = position.Copy();
-		for (let i = 1; i < this.joints.length - 1; i++) {
+		for (let i = 1; i < this.joints.length; i++) {
 			this.joints[i] = ConstrainDistance(this.joints[i], this.joints[i - 1], this.jointDistance);
 		}
 

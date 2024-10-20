@@ -16,14 +16,16 @@ export class Fish extends GameObject {
 	private texture: Promise<Texture>; // TODO: use bundles and named thingos
 	private graphics?: MeshRope;
 	private mesh: Point[];
-	trackTowards?: TrackTarget | (() => TrackTarget);
-	maxVelocity = 20 / 1000; // pixels per millisecond
+	trackTowards?: TrackTarget | ((this: Fish) => TrackTarget);
+	maxVelocity = 100 / 1000; // pixels per millisecond
+	maxAngle = new Degrees(22);
+	segmentLength = 10;
 
 	constructor(app: Application, name = `fish-${nanoid(10)}`) {
 		super(app, name, ['fish']);
 
 		// 10 segments
-		this.spine = new Chain(new Vector(), 10, 64, new Degrees(22.5));
+		this.spine = new Chain(new Vector(), 10, this.segmentLength, this.maxAngle);
 		this.mesh = this.spine.joints.map(({ x, y }) => new Point(x, y));
 
 		this.texture = Assets.load(textureURI);
@@ -49,8 +51,9 @@ export class Fish extends GameObject {
 	Update(ticker: Ticker): void {
 		// Move a little bit towards the target location
 		const trackTarget =
-			typeof this.trackTowards === 'function' ? this.trackTowards() : this.trackTowards;
+			typeof this.trackTowards === 'function' ? this.trackTowards.call(this) : this.trackTowards;
 		const trackPosition = trackTarget instanceof GameObject ? trackTarget.position : trackTarget;
+
 		if (trackPosition) {
 			// Cap the displacement by max velocity
 			const displacement = trackPosition.Copy().Subtract(this.position);
