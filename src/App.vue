@@ -11,6 +11,13 @@ const app = ref<Application | null>(null);
 const canvas = ref<HTMLCanvasElement>();
 
 onMounted(async () => {
-	app.value ??= await CreateGame({ canvas: canvas.value, resizeTo: window, background: '#1099bb' });
+	app.value ??= await CreateGame({ canvas: canvas.value, resizeTo: window, background: '#4f6966' });
 });
+
+// HMR force reload
+if (import.meta.hot) {
+	import.meta.hot.dispose(() => {
+		import.meta.hot?.invalidate();
+	});
+}
 </script>
