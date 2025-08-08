@@ -8,7 +8,7 @@ export default abstract class GameObject {
 	private static register = new Set<GameObject>();
 
 	protected app: Application;
-	protected container = new Container();
+	container = new Container();
 	position: Vector;
 	angle: Angle;
 	scale: Vector;

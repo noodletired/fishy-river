@@ -168,8 +168,7 @@ export class Fish extends GameObject {
 		this.texture = Assets.load(textureURI);
 		this.texture.then((texture) => {
 			this.graphics = new MeshRope({ texture, points: this.mesh });
-			this.app.stage.addChild(this.graphics);
-			// this.container.addChild(this.graphics);
+			this.container.addChild(this.graphics);
 		});
 
 		this.stateMachine = new StateMachine<States>(
@@ -194,6 +193,10 @@ export class Fish extends GameObject {
 		this.spine.angles[0] = angle;
 		this.position = position;
 		this.angle = angle;
+	}
+
+	Render() {
+		// override default renderer
 	}
 
 	Update(ticker: Ticker): void {
