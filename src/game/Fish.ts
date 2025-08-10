@@ -4,7 +4,7 @@ import GameObject from 'lib/GameObject';
 import Chain from 'lib/Chain';
 import { Angle, Degrees, Radians, Vector } from 'lib/Vector';
 import textureURI from 'assets/fish.png';
-import { State, StateMachine } from 'lib/State';
+import { EnergizedState, State, StateMachine } from 'lib/State';
 
 type TrackTarget = GameObject | Vector;
 
@@ -12,25 +12,56 @@ type TrackTarget = GameObject | Vector;
  * Possible states for the fish to be in.
  */
 type States =
-	| 'idle' // chillin' in place
 	| 'explore' // swimming in a random direction
 	| 'rush' // zooms towards target
 	| 'feed' // kisses target
 	| 'flee'; // runs from target
 
-class IdleState extends State {
-	// TODO
+class ExploringState extends EnergizedState {
+	private startPosition = new Vector();
+	private direction = new Vector(); // random spot to explore
+	private maxDistance = 10;
+
+	constructor(private parent: Fish) {
+		const minEnergy = 1 * 1000;
+		const maxEnergy = 5 * 1000;
+		super(minEnergy, maxEnergy);
+	}
+
+	Enter(): void {
+		this.direction = new Vector(Math.random() - 0.5, Math.random() - 0.5).Normalise().Multiply(10);
+		this.startPosition.Set(this.parent.position);
+		super.Enter();
+	}
+
+	Update(ticker: Ticker): void {
+		// Check if max distance has been reached
+		const distance = this.parent.position.Distance(this.startPosition);
+		if (distance > this.maxDistance) {
+			// Decelerate naturally, then explore again
+			if (this.parent.velocity < this.parent.maxVelocity / 100) {
+				this.Tired();
+			}
+		} else {
+			// Rush but... slowish!
+			this.parent.RushTo(this.parent.position.Copy().Add(this.direction), ticker);
+			this.parent.velocity = Math.min(this.parent.velocity, this.parent.maxVelocity) / 2;
+			this.parent.angularVelocity =
+				Math.min(this.parent.angularVelocity, this.parent.maxAngularVelocity) / 2;
+		}
+
+		// TODO: look for areas of interest with raycasts
+
+		super.Update(ticker);
+	}
+
+	Tired(): void {
+		this.parent.stateMachine.Change('explore');
+	}
 }
 
-class ExploringState extends State {
-	// TODO
-}
-
-class RushingState extends State {
+class RushingState extends EnergizedState {
 	// energy is measured in milliseconds, when depleted we change state
-	private minEnergy = 3 * 1000;
-	private maxEnergy = 10 * 1000;
-	private energy = 0;
 	private minVelocity = 0;
 	private slowRadius = 150; // pixels, when fish is inside this radius it slows and homes in directly on target
 	private stopRadius = 10; // pixels, when fish is close enough it stops to feed
@@ -38,15 +69,17 @@ class RushingState extends State {
 	private noiseOffset = new Vector();
 
 	constructor(private parent: Fish) {
-		super();
+		const minEnergy = 3 * 1000;
+		const maxEnergy = 10 * 1000;
+		super(minEnergy, maxEnergy);
 	}
 
 	Enter(): void {
-		this.energy = Math.random() * (this.maxEnergy - this.minEnergy) + this.minEnergy;
 		this.minVelocity = this.parent.maxVelocity / 5;
 		this.noiseOffset = new Vector(Math.random(), Math.random())
 			.Normalise()
 			.Multiply(this.noiseOffsetRadius);
+		super.Enter();
 	}
 
 	Update(ticker: Ticker): void {
@@ -56,62 +89,55 @@ class RushingState extends State {
 			return;
 		}
 
-		this.energy -= ticker.deltaMS;
-		if (this.energy > 0) {
-			// Move a little bit towards the target location
-			const trackTarget =
-				typeof this.parent.trackTowards === 'function'
-					? this.parent.trackTowards.call(this.parent)
-					: this.parent.trackTowards;
-			const trackPosition = (
-				trackTarget instanceof GameObject ? trackTarget.position : trackTarget
-			).Copy();
+		// Move a little bit towards the target location
+		const trackTarget =
+			typeof this.parent.trackTowards === 'function'
+				? this.parent.trackTowards.call(this.parent)
+				: this.parent.trackTowards;
+		const trackPosition = (
+			trackTarget instanceof GameObject ? trackTarget.position : trackTarget
+		).Copy();
 
-			// Transition to feeding state if close
-			const trackDistance = trackPosition.Distance(this.parent.position);
-			if (trackDistance < this.stopRadius) {
-				this.parent.stateMachine.Change('feed');
-				return;
-			}
-
-			// Add random noise so not all fish converge
-			// TODO: do something a little more sophisticated so fish don't overlap
-			if (trackDistance > this.slowRadius) {
-				trackPosition.Add(this.noiseOffset);
-			}
-
-			// Try to move the fish
-			this.parent.RushTo(trackPosition, ticker);
-
-			if (trackDistance <= this.slowRadius) {
-				// Scale that velocity down based on distance
-				const t = trackDistance / this.slowRadius;
-				this.parent.velocity = Math.min(this.parent.velocity, this.parent.maxVelocity) * t;
-				// TODO: transition to fleeing if too many nearby fish
-			}
-
-			if (this.parent.velocity < this.minVelocity) {
-				// Ensure the fishy keeps moving around
-				this.parent.velocity = this.minVelocity;
-			}
-		} else {
-			this.parent.stateMachine.Change('idle');
+		// Transition to feeding state if close
+		const trackDistance = trackPosition.Distance(this.parent.position);
+		if (trackDistance < this.stopRadius) {
+			this.parent.stateMachine.Change('feed');
+			return;
 		}
+
+		// Add random noise so not all fish converge
+		// TODO: do something a little more sophisticated so fish don't overlap
+		if (trackDistance > this.slowRadius) {
+			trackPosition.Add(this.noiseOffset);
+		}
+
+		// Try to move the fish
+		this.parent.RushTo(trackPosition, ticker);
+
+		if (trackDistance <= this.slowRadius) {
+			// Scale that velocity down based on distance
+			const t = trackDistance / this.slowRadius;
+			this.parent.velocity = Math.min(this.parent.velocity, this.parent.maxVelocity) * t;
+			// TODO: transition to fleeing if too many nearby fish
+		}
+
+		if (this.parent.velocity < this.minVelocity) {
+			// Ensure the fishy keeps moving around
+			this.parent.velocity = this.minVelocity;
+		}
+		super.Update(ticker);
+	}
+
+	Tired() {
+		this.parent.stateMachine.Change('explore');
 	}
 }
 
-class FeedingState extends State {
-	// energy is measured in milliseconds, when depleted we change state
-	private minEnergy = 2 * 1000;
-	private maxEnergy = 5 * 1000;
-	private energy = 0;
-
+class FeedingState extends EnergizedState {
 	constructor(private parent: Fish) {
-		super();
-	}
-
-	Enter(): void {
-		this.energy = Math.random() * (this.maxEnergy - this.minEnergy) + this.minEnergy;
+		const minEnergy = 2 * 1000;
+		const maxEnergy = 5 * 1000;
+		super(minEnergy, maxEnergy);
 	}
 
 	Update(ticker: Ticker): void {
@@ -119,13 +145,11 @@ class FeedingState extends State {
 		this.parent.velocity *= Math.max(1 - (ticker.deltaMS / 1000) * 0.8, 0);
 		this.parent.angularVelocity *= Math.max(1 - (ticker.deltaMS / 1000) * 0.8, 0);
 
-		this.energy -= ticker.deltaMS;
-		if (this.energy > 0) {
-			// Wiggle tail!
-			// TODO:
-		} else {
-			this.parent.stateMachine.Change('flee');
-		}
+		super.Update(ticker);
+	}
+
+	Tired() {
+		this.parent.stateMachine.Change('explore');
 	}
 }
 
@@ -146,6 +170,7 @@ export class Fish extends GameObject {
 	private texture: Promise<Texture>; // TODO: use bundles and named thingos
 	private graphics?: MeshRope;
 	private mesh: Point[];
+	lifetime = 0; // seconds
 	stateMachine: StateMachine<States>;
 
 	trackTowards?: TrackTarget | ((this: Fish) => TrackTarget);
@@ -173,8 +198,7 @@ export class Fish extends GameObject {
 
 		this.stateMachine = new StateMachine<States>(
 			[
-				['idle', new IdleState()],
-				['explore', new ExploringState()],
+				['explore', new ExploringState(this)],
 				['rush', new RushingState(this)],
 				['feed', new FeedingState(this)],
 				['flee', new FleeingState(this)]
@@ -200,8 +224,11 @@ export class Fish extends GameObject {
 	}
 
 	Update(ticker: Ticker): void {
+		this.lifetime += ticker.deltaMS / 1000;
 		this.stateMachine.Update(ticker);
-		this.ApplyPhysicsConstraints(ticker);
+		this.ApplyConstraints();
+		this.Wiggle();
+		this.ApplyPhysics(ticker);
 		// TODO: add collision checks with raycasts to other fish
 
 		// Update the mesh
@@ -222,17 +249,18 @@ export class Fish extends GameObject {
 		super.Destroy();
 	}
 
-	ApplyPhysicsConstraints(ticker: Ticker) {
+	ApplyConstraints() {
 		// Apply constraints to velocity and angular velocity
 		if (this.velocity > this.maxVelocity) {
 			this.velocity = this.maxVelocity;
 		}
-
 		if (Math.abs(this.angularVelocity) > this.maxAngularVelocity) {
 			const sign = this.angularVelocity > 0 ? 1 : -1;
 			this.angularVelocity = sign * this.maxAngularVelocity;
 		}
+	}
 
+	ApplyPhysics(ticker: Ticker) {
 		// Compute displacement vector from velocities
 		const displacement = new Vector(1, 0)
 			.Multiply(this.velocity * ticker.deltaMS)
@@ -244,9 +272,9 @@ export class Fish extends GameObject {
 		this.angle = this.spine.angles[0];
 
 		// Apply friction
-		// Just a basic 10%/sec decay
-		this.velocity *= 1.0 - (ticker.deltaMS / 1000) * 0.1;
-		this.angularVelocity *= 1.0 - (ticker.deltaMS / 1000) * 0.1;
+		// Just a basic %/sec decay
+		this.velocity *= 1.0 - (ticker.deltaMS / 1000) * 0.4; // 40%
+		this.angularVelocity *= 1.0 - (ticker.deltaMS / 1000) * 0.7; // 70%
 	}
 
 	RushTo(targetPosition: Vector, ticker: Ticker): void {
@@ -259,5 +287,16 @@ export class Fish extends GameObject {
 			const angleDelta = displacement.angle.Difference(this.angle);
 			this.angularVelocity = angleDelta.radians / ticker.deltaMS;
 		}
+	}
+
+	Wiggle(): void {
+		// Move the midjoint back and forth, scaled in intensity and frequency by velocity
+		this.spine.joints[5].Rotate(
+			new Radians(
+				((((this.velocity / this.maxVelocity) ** 2 * this.maxSpineAngle.radians) / 20) *
+					Math.sin(this.velocity * 150 * this.lifetime)) /
+					Math.PI
+			)
+		);
 	}
 }

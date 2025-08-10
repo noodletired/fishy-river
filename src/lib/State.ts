@@ -12,6 +12,33 @@ export class State {
 }
 
 /**
+ * Type of state that has random limited "energy" which depletes over time
+ */
+export abstract class EnergizedState extends State {
+	energy: number = 0;
+
+	constructor(
+		public minEnergy: number,
+		public maxEnergy: number
+	) {
+		super();
+	}
+
+	Enter() {
+		this.energy = Math.random() * (this.maxEnergy - this.minEnergy) + this.minEnergy;
+	}
+
+	Update(ticker: Ticker) {
+		this.energy -= ticker.deltaMS;
+		if (this.energy < 0) {
+			this.Tired();
+		}
+	}
+
+	abstract Tired(): void;
+}
+
+/**
  * Machine to handle state transitions.
  * Can be strongly typed to a literal union of state names.
  */
