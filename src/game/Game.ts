@@ -12,6 +12,7 @@ import GameObject from 'lib/GameObject';
 import { Fish } from './Fish';
 import { Vector } from 'lib/Vector';
 import xbrzFilterFrag from 'assets/xbrzFilter.frag?raw';
+import { Plant } from './Plant';
 
 /**
  * Create a new PixiJS App
@@ -123,6 +124,13 @@ export async function CreateGame(options?: Partial<ApplicationOptions>) {
 	const fish = new Fish(app);
 	renderContainer.addChild(fish.container);
 	fish.trackTowards = mouse;
+
+	// plants
+	for (let i = 0; i < 10; i++) {
+		const plant = new Plant(app);
+		plant.position.Set(i * 20 + 50);
+		renderContainer.addChild(plant.container);
+	}
 
 	return app;
 }

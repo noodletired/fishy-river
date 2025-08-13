@@ -18,7 +18,7 @@ export default abstract class GameObject {
 	constructor(app: Application, name = '', tags: Set<string> | string[] = []) {
 		this.app = app;
 		this.position = new Vector();
-		this.scale = new Vector();
+		this.scale = new Vector(1.0);
 		this.angle = new Degrees(0);
 		this.name = name;
 		this.tags = new Set(tags);
