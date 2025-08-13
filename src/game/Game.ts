@@ -11,6 +11,7 @@ import {
 import GameObject from 'lib/GameObject';
 import { Fish } from './Fish';
 import { Vector } from 'lib/Vector';
+import xbrzFilterFrag from 'assets/xbrzFilter.frag?raw';
 
 /**
  * Create a new PixiJS App
@@ -28,14 +29,15 @@ export async function CreateGame(options?: Partial<ApplicationOptions>) {
 		app.renderer.render({
 			container: renderContainer,
 			target: renderTexture,
-			clear: true
+			clear: true,
+			clearColor: options?.background
 		});
 	});
 
 	// Put everything in one top-level container "renderContainer"
 	// which gets rendered to "renderTexture" at a lower resolution,
 	// then upscaled for crunchy pixels
-	const renderScale = 0.2;
+	const renderScale = 0.15;
 	const renderContainer = new Container();
 	renderContainer.scale = renderScale;
 	renderContainer.filters = [
@@ -90,6 +92,23 @@ export async function CreateGame(options?: Partial<ApplicationOptions>) {
 	});
 	const renderSprite = new Sprite(renderTexture);
 	renderSprite.scale = 1 / renderScale; // scale back up!
+	renderSprite.filters = [
+		new Filter({
+			// Screen shader
+			glProgram: new GlProgram({
+				fragment: xbrzFilterFrag,
+				vertex: defaultFilterVert
+			}),
+			resources: {
+				uniforms: {
+					uInputScale: {
+						type: 'f32',
+						value: renderScale
+					}
+				}
+			}
+		})
+	];
 	app.stage.addChild(renderSprite);
 
 	// FIXME: DEBUG
