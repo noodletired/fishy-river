@@ -3,8 +3,10 @@ import type { Ticker } from 'pixi.js';
 /**
  * Base class for state management
  */
-export class State {
-	Enter() {}
+export class State<EnterArgs extends unknown[] = unknown[]> {
+	Enter(...args: EnterArgs) {
+		args;
+	}
 	Update(ticker: Ticker) {
 		ticker;
 	}
@@ -14,7 +16,9 @@ export class State {
 /**
  * Type of state that has random limited "energy" which depletes over time
  */
-export abstract class EnergizedState extends State {
+export abstract class EnergizedState<
+	EnterArgs extends unknown[] = unknown[]
+> extends State<EnterArgs> {
 	energy: number = 0;
 
 	constructor(
@@ -24,7 +28,8 @@ export abstract class EnergizedState extends State {
 		super();
 	}
 
-	Enter() {
+	Enter(...args: EnterArgs) {
+		args;
 		this.energy = Math.random() * (this.maxEnergy - this.minEnergy) + this.minEnergy;
 	}
 
@@ -65,10 +70,10 @@ export class StateMachine<Name = string> {
 		this.states.delete(name);
 	}
 
-	Change(name: Name) {
+	Change(name: Name, ...args: unknown[]) {
 		this.currentState?.Exit();
 		this.currentState = this.states.get(name);
-		this.currentState?.Enter();
+		this.currentState?.Enter(...args);
 	}
 
 	Update(ticker: Ticker) {

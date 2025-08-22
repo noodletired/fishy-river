@@ -14,6 +14,7 @@ export default abstract class GameObject {
 	scale: Vector;
 	name: string;
 	tags: Set<string>;
+	disposed = false; // marked for removal
 
 	constructor(app: Application, name = '', tags: Set<string> | string[] = []) {
 		this.app = app;
@@ -38,6 +39,10 @@ export default abstract class GameObject {
 			.rotate(this.angle.radians)
 			.translate(this.position.x, this.position.y);
 		this.container.setFromMatrix(matrix);
+	}
+
+	Dispose() {
+		this.disposed = true;
 	}
 
 	Destroy() {

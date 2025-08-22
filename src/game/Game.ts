@@ -26,6 +26,7 @@ export async function CreateGame(options?: Partial<ApplicationOptions>) {
 		const objects = GameObject.All();
 		objects.forEach((object) => object.Update(ticker));
 		objects.forEach((object) => object.Render(ticker));
+		objects.forEach((object) => object.disposed && object.Destroy());
 
 		app.renderer.render({
 			container: renderContainer,
@@ -126,10 +127,12 @@ export async function CreateGame(options?: Partial<ApplicationOptions>) {
 	fish.trackTowards = mouse;
 
 	// plants
-	for (let i = 0; i < 10; i++) {
-		const plant = new Plant(app);
-		plant.position.Set(i * 20 + 50);
-		renderContainer.addChild(plant.container);
+	for (let i = 1; i < 10; i++) {
+		for (let j = 1; j < 5; j++) {
+			const plant = new Plant(app);
+			plant.position.Set({ x: i * 100, y: j * 100 });
+			renderContainer.addChild(plant.container);
+		}
 	}
 
 	return app;

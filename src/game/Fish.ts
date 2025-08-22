@@ -5,6 +5,7 @@ import Chain from 'lib/Chain';
 import { Angle, Degrees, Radians, Vector } from 'lib/Vector';
 import textureURI from 'assets/fish.png';
 import { EnergizedState, State, StateMachine } from 'lib/State';
+import { Plant } from './Plant';
 
 type TrackTarget = GameObject | Vector;
 
@@ -20,7 +21,9 @@ type States =
 class ExploringState extends EnergizedState {
 	private startPosition = new Vector();
 	private direction = new Vector(); // random spot to explore
-	private maxDistance = 10;
+	private maxRushDistance = 50;
+	private visionDistance = 300; // rush to plants when within range
+	private visionFOV = new Degrees(90); // 90deg FOV
 
 	constructor(private parent: Fish) {
 		const minEnergy = 1 * 1000;
@@ -37,7 +40,7 @@ class ExploringState extends EnergizedState {
 	Update(ticker: Ticker): void {
 		// Check if max distance has been reached
 		const distance = this.parent.position.Distance(this.startPosition);
-		if (distance > this.maxDistance) {
+		if (distance > this.maxRushDistance) {
 			// Decelerate naturally, then explore again
 			if (this.parent.velocity < this.parent.maxVelocity / 100) {
 				this.Tired();
@@ -50,7 +53,28 @@ class ExploringState extends EnergizedState {
 				Math.min(this.parent.angularVelocity, this.parent.maxAngularVelocity) / 2;
 		}
 
-		// TODO: look for areas of interest with raycasts
+		// Look for areas of interest within cone of vision
+		// We could use raycasts but comparing distance & angle kinda works fine
+		const nearbyPlants: [number, Plant][] = [];
+		for (const plant of GameObject.FindAllWithTag('plant') as Plant[]) {
+			// Check distance, then angle
+			const distance = plant.position.Distance(this.parent.position);
+			if (distance < this.visionDistance) {
+				const displacement = plant.position.Copy().Subtract(this.parent.position);
+				const sightAngleDifference = displacement.angle.Difference(this.parent.angle).radians;
+				if (Math.abs(sightAngleDifference) < this.visionFOV.radians / 2) {
+					// within sight!
+					nearbyPlants.push([distance, plant]);
+				}
+			}
+		}
+		if (nearbyPlants.length) {
+			console.debug('Found plants!', nearbyPlants);
+			// const nearestPlant = nearbyPlants.reduce((a, b) => (a[0] <= b[0] ? a : b))[1];
+			const randomPlant = nearbyPlants[Math.floor(Math.random() * nearbyPlants.length)][1];
+			this.parent.trackTowards = randomPlant;
+			this.parent.stateMachine.Change('rush');
+		}
 
 		super.Update(ticker);
 	}
@@ -98,10 +122,14 @@ class RushingState extends EnergizedState {
 			trackTarget instanceof GameObject ? trackTarget.position : trackTarget
 		).Copy();
 
-		// Transition to feeding state if close
+		// Transition to feeding state if close to target
 		const trackDistance = trackPosition.Distance(this.parent.position);
 		if (trackDistance < this.stopRadius) {
-			this.parent.stateMachine.Change('feed');
+			const plantTarget = trackTarget instanceof Plant ? trackTarget : undefined;
+			if (plantTarget) {
+				console.debug('Feeding on plant', plantTarget);
+			}
+			this.parent.stateMachine.Change('feed', plantTarget);
 			return;
 		}
 
@@ -134,16 +162,35 @@ class RushingState extends EnergizedState {
 }
 
 class FeedingState extends EnergizedState {
+	food: Plant | null = null;
+	lastBiteTime = 0;
+	biteInterval = 0.2; // bite a few times per second
+
 	constructor(private parent: Fish) {
 		const minEnergy = 2 * 1000;
 		const maxEnergy = 5 * 1000;
 		super(minEnergy, maxEnergy);
 	}
 
+	Enter(food: Plant): void {
+		this.food = food;
+		this.lastBiteTime = this.parent.lifetime;
+		super.Enter();
+	}
+
 	Update(ticker: Ticker): void {
 		// Rapidly decrease velocity (80% / sec)
 		this.parent.velocity *= Math.max(1 - (ticker.deltaMS / 1000) * 0.8, 0);
 		this.parent.angularVelocity *= Math.max(1 - (ticker.deltaMS / 1000) * 0.8, 0);
+
+		if (this.food && this.parent.lifetime > this.lastBiteTime + this.biteInterval) {
+			this.lastBiteTime = this.parent.lifetime;
+			if (!this.food.disposed) {
+				this.food.Eat();
+			} else {
+				this.Tired();
+			}
+		}
 
 		super.Update(ticker);
 	}
