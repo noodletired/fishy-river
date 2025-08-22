@@ -22,8 +22,6 @@ class ExploringState extends EnergizedState {
 	private startPosition = new Vector();
 	private direction = new Vector(); // random spot to explore
 	private maxRushDistance = 50;
-	private visionDistance = 300; // rush to plants when within range
-	private visionFOV = new Degrees(90); // 90deg FOV
 
 	constructor(private parent: Fish) {
 		const minEnergy = 1 * 1000;
@@ -57,15 +55,8 @@ class ExploringState extends EnergizedState {
 		// We could use raycasts but comparing distance & angle kinda works fine
 		const nearbyPlants: [number, Plant][] = [];
 		for (const plant of GameObject.FindAllWithTag('plant') as Plant[]) {
-			// Check distance, then angle
-			const distance = plant.position.Distance(this.parent.position);
-			if (distance < this.visionDistance) {
-				const displacement = plant.position.Copy().Subtract(this.parent.position);
-				const sightAngleDifference = displacement.angle.Difference(this.parent.angle).radians;
-				if (Math.abs(sightAngleDifference) < this.visionFOV.radians / 2) {
-					// within sight!
-					nearbyPlants.push([distance, plant]);
-				}
+			if (this.parent.IsPointInSight(plant.position)) {
+				nearbyPlants.push([distance, plant]);
 			}
 		}
 		if (nearbyPlants.length) {
@@ -146,7 +137,6 @@ class RushingState extends EnergizedState {
 			// Scale that velocity down based on distance
 			const t = trackDistance / this.slowRadius;
 			this.parent.velocity = Math.min(this.parent.velocity, this.parent.maxVelocity) * t;
-			// TODO: transition to fleeing if too many nearby fish
 		}
 
 		if (this.parent.velocity < this.minVelocity) {
@@ -200,12 +190,27 @@ class FeedingState extends EnergizedState {
 	}
 }
 
-class FleeingState extends State {
+class FleeingState extends EnergizedState {
+	private fleeDirection = new Vector();
+
 	constructor(private parent: Fish) {
-		super();
+		const minEnergy = 1 * 1000;
+		const maxEnergy = 3 * 1000;
+		super(minEnergy, maxEnergy);
 	}
 
-	Update(ticker: Ticker): void {}
+	Enter(enemy: GameObject): void {
+		this.fleeDirection = this.parent.position.Copy().Subtract(enemy.position).Normalise();
+	}
+
+	Update(ticker: Ticker): void {
+		// Rush in the opposite direction
+		this.parent.RushTo(this.parent.position.Copy().Add(this.fleeDirection), ticker);
+	}
+
+	Tired() {
+		this.parent.stateMachine.Change('explore');
+	}
 }
 
 /**
@@ -229,6 +234,9 @@ export class Fish extends GameObject {
 
 	maxSpineAngle = new Degrees(22); // max angle between segments
 	spineSegmentLength = 10;
+
+	visionDistance = 300; // rush to plants and fear other fish
+	visionFOV = new Degrees(90); // 90deg FOV
 
 	constructor(app: Application, name = `fish-${nanoid(10)}`) {
 		super(app, name, ['fish']);
@@ -272,11 +280,11 @@ export class Fish extends GameObject {
 
 	Update(ticker: Ticker): void {
 		this.lifetime += ticker.deltaMS / 1000;
+		this.CheckForRivals();
 		this.stateMachine.Update(ticker);
 		this.ApplyConstraints();
 		this.Wiggle();
 		this.ApplyPhysics(ticker);
-		// TODO: add collision checks with raycasts to other fish
 
 		// Update the mesh
 		for (let i = 0; i < this.mesh.length; i++) {
@@ -345,5 +353,29 @@ export class Fish extends GameObject {
 					Math.PI
 			)
 		);
+	}
+
+	IsPointInSight(point: Vector): boolean {
+		const distance = point.Distance(this.position);
+		if (distance < this.visionDistance) {
+			// FIXME: test this works as intended... fish don't seem to spot each other as intended
+			const displacement = point.Copy().Subtract(this.position);
+			const sightAngleDifference = displacement.angle.Difference(this.angle).radians;
+			if (Math.abs(sightAngleDifference) < this.visionFOV.radians / 2) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	CheckForRivals(): void {
+		// Check if any other fish are nearby (in sight) and flee if they are
+		for (const fish of GameObject.FindAllWithTag('fish') as Fish[]) {
+			if (fish === this) return; // let's not scare ourselves :O
+			if (this.IsPointInSight(fish.position)) {
+				console.debug('Enemy spotted!', this.name, 'fleeing', fish.name);
+				this.stateMachine.Change('flee', fish);
+			}
+		}
 	}
 }
